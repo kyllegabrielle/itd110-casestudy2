@@ -8,6 +8,7 @@ const {
   deleteIncident,
   searchIncidents,
   getStats,
+  getCrimeTypes,
   downloadBackup
 } = require('../controllers/incidentController');
 
@@ -24,6 +25,7 @@ router.route('/:id')
 // Special endpoints
 router.get('/search/:keyword', searchIncidents);
 router.get('/dashboard/stats', getStats);
+router.get('/types/list', getCrimeTypes);
 router.get('/backup/download', downloadBackup);
 
 module.exports = router;

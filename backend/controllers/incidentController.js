@@ -12,35 +12,44 @@ exports.createIncident = async (req, res) => {
   } = req.body;
 
   try {
-    const result = await s.writeTransaction(tx =>
-      tx.run(`
-        MERGE (i:Incident {incidentId: $id})
-        SET i.title = $title,
-            i.description = $description,
-            i.date = $date,
-            i.time = $time,
-            i.status = $status
-
-        MERGE (ct:CrimeType {name: $crimeType})
-        MERGE (i)-[:HAS_TYPE]->(ct)
-
-        MERGE (l:Location {name: $locationName, barangay: $barangay})
-        MERGE (i)-[:OCCURRED_AT]->(l)
-
-        MERGE (s:Suspect {name: $suspectName})
-        MERGE (s)-[:INVOLVED_IN]->(i)
-
-        MERGE (v:Victim {name: $victimName})
-        MERGE (v)-[:AFFECTED_BY]->(i)
-
-        MERGE (o:Officer {name: $officerName})
-        MERGE (o)-[:HANDLED]->(i)
-
-        RETURN i, ct, l, s, v, o
-      `, {
-        id, title, description, date, time, status,
-        locationName, barangay, suspectName, victimName, officerName
-      })
+    const result = await s.run(
+      `MERGE (i:Incident {incidentId: $id})
+       SET i.title = $title,
+           i.description = $description,
+           i.date = $date,
+           i.time = $time,
+           i.status = $status
+       
+       MERGE (ct:CrimeType {name: $crimeType})
+       MERGE (i)-[:HAS_TYPE]->(ct)
+       
+       MERGE (l:Location {name: $locationName, barangay: $barangay})
+       MERGE (i)-[:OCCURRED_AT]->(l)
+       
+       MERGE (s:Suspect {name: $suspectName})
+       MERGE (s)-[:INVOLVED_IN]->(i)
+       
+       MERGE (v:Victim {name: $victimName})
+       MERGE (v)-[:AFFECTED_BY]->(i)
+       
+       MERGE (o:Officer {name: $officerName})
+       MERGE (o)-[:HANDLED]->(i)
+       
+       RETURN i`,
+      {
+        id: id,
+        title: title || "",
+        description: description || "",
+        date: date || "",
+        time: time || "",
+        status: status || "Pending",
+        crimeType: crimeType || "Unknown",
+        locationName: locationName || "Unknown",
+        barangay: barangay || "Unknown",
+        suspectName: suspectName || "Unknown",
+        victimName: victimName || "Unknown",
+        officerName: officerName || "Unknown"
+      }
     );
 
     res.status(201).json({
@@ -137,8 +146,7 @@ exports.updateIncident = async (req, res) => {
   } = req.body;
 
   try {
-    await s.writeTransaction(tx =>
-      tx.run(`
+    await s.run(`
         MATCH (i:Incident {incidentId: $id})
         SET i.title = $title,
             i.description = $description,
@@ -183,9 +191,19 @@ exports.updateIncident = async (req, res) => {
 
         RETURN i
       `, {
-        id, title, description, date, time, status,
-        locationName, barangay, suspectName, victimName, officerName
-      })
+        id: id,
+        title: title || "",
+        description: description || "",
+        date: date || "",
+        time: time || "",
+        status: status || "Pending",
+        crimeType: crimeType || "Unknown",
+        locationName: locationName || "Unknown",
+        barangay: barangay || "Unknown",
+        suspectName: suspectName || "Unknown",
+        victimName: victimName || "Unknown",
+        officerName: officerName || "Unknown"
+      }
     );
 
     res.status(200).json({ success: true, message: 'Incident updated successfully' });
@@ -221,14 +239,32 @@ exports.searchIncidents = async (req, res) => {
   try {
     const result = await s.run(`
       MATCH (i:Incident)
-      WHERE i.title CONTAINS $keyword OR i.description CONTAINS $keyword
       OPTIONAL MATCH (i)-[:HAS_TYPE]->(ct:CrimeType)
-      RETURN i, ct.name as crimeType
+      OPTIONAL MATCH (i)-[:OCCURRED_AT]->(l:Location)
+      OPTIONAL MATCH (s:Suspect)-[:INVOLVED_IN]->(i)
+      OPTIONAL MATCH (v:Victim)-[:AFFECTED_BY]->(i)
+      OPTIONAL MATCH (o:Officer)-[:HANDLED]->(i)
+      WHERE 
+        toLower(i.title) CONTAINS toLower($keyword) OR 
+        toLower(i.description) CONTAINS toLower($keyword) OR 
+        toLower(ct.name) CONTAINS toLower($keyword) OR 
+        toLower(l.name) CONTAINS toLower($keyword) OR 
+        toLower(l.barangay) CONTAINS toLower($keyword) OR 
+        toLower(s.name) CONTAINS toLower($keyword) OR 
+        toLower(v.name) CONTAINS toLower($keyword) OR 
+        toLower(o.name) CONTAINS toLower($keyword) OR
+        toLower(i.date) CONTAINS toLower($keyword) OR
+        toLower(i.time) CONTAINS toLower($keyword)
+      RETURN i, ct.name as crimeType, l.name as locationName, s.name as suspectName, v.name as victimName, o.name as officerName
     `, { keyword });
 
     const incidents = result.records.map(record => ({
       ...record.get('i').properties,
-      crimeType: record.get('crimeType')
+      crimeType: record.get('crimeType'),
+      locationName: record.get('locationName'),
+      suspectName: record.get('suspectName'),
+      victimName: record.get('victimName'),
+      officerName: record.get('officerName')
     }));
 
     res.status(200).json({ success: true, data: incidents });
@@ -246,20 +282,51 @@ exports.getStats = async (req, res) => {
   try {
     const result = await s.run(`
       MATCH (i:Incident)
-      WITH count(i) as totalIncidents
-      MATCH (i:Incident)-[:HAS_TYPE]->(ct:CrimeType)
-      RETURN totalIncidents, ct.name as type, count(i) as count
+      WITH count(i) as total
+      
+      OPTIONAL MATCH (i1:Incident {status: 'Active'})
+      WITH total, count(i1) as active
+      
+      OPTIONAL MATCH (i2:Incident {status: 'Solved'})
+      WITH total, active, count(i2) as solved
+      
+      OPTIONAL MATCH (i:Incident)-[:HAS_TYPE]->(ct:CrimeType)
+      RETURN total, active, solved, ct.name as type, count(i) as typeCount
     `);
 
     const stats = {
-      total: result.records[0]?.get('totalIncidents').toInt() || 0,
-      byType: result.records.map(r => ({
-        type: r.get('type'),
-        count: r.get('count').toInt()
-      }))
+      total: result.records[0]?.get('total').toInt() || 0,
+      active: result.records[0]?.get('active').toInt() || 0,
+      solved: result.records[0]?.get('solved').toInt() || 0,
+      byType: result.records
+        .filter(r => r.get('type') !== null)
+        .map(r => ({
+          name: r.get('type'),
+          value: r.get('typeCount').toInt()
+        }))
     };
 
     res.status(200).json({ success: true, data: stats });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    await s.close();
+  }
+};
+
+// @desc    Get all unique crime types
+// @route   GET /api/v1/incidents/types/list
+exports.getCrimeTypes = async (req, res) => {
+  const s = session();
+  try {
+    const result = await s.run(`
+      MATCH (ct:CrimeType)
+      RETURN ct.name as name
+      ORDER BY ct.name ASC
+    `);
+
+    const types = result.records.map(r => r.get('name'));
+    res.status(200).json({ success: true, data: types });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   } finally {

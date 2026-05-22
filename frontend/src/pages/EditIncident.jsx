@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const AddIncident = () => {
+const EditIncident = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { id } = useParams();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [existingTypes, setExistingTypes] = useState([]);
 
@@ -17,7 +19,7 @@ const AddIncident = () => {
     description: '',
     date: '',
     time: '',
-    status: 'Active',
+    status: '',
     locationName: '',
     barangay: '',
     suspectName: '',
@@ -26,16 +28,22 @@ const AddIncident = () => {
   });
 
   useEffect(() => {
-    const fetchTypes = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/v1/incidents/types/list`);
-        setExistingTypes(response.data.data);
+        const [incidentRes, typesRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/api/v1/incidents/${id}`),
+          axios.get(`${API_BASE_URL}/api/v1/incidents/types/list`)
+        ]);
+        setFormData(incidentRes.data.data);
+        setExistingTypes(typesRes.data.data);
       } catch (err) {
-        console.error('Failed to fetch crime types', err);
+        setFeedback({ type: 'error', message: 'Failed to fetch required data.' });
+      } finally {
+        setLoading(false);
       }
     };
-    fetchTypes();
-  }, []);
+    fetchData();
+  }, [id]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -43,46 +51,46 @@ const AddIncident = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     setFeedback({ type: '', message: '' });
 
     try {
-      await axios.post(`${API_BASE_URL}/api/v1/incidents`, formData);
-      setFeedback({ type: 'success', message: 'Incident recorded successfully!' });
-      
-      // Clear form
-      setFormData({
-        title: '',
-        crimeType: '',
-        description: '',
-        date: '',
-        time: '',
-        status: 'Active',
-        locationName: '',
-        barangay: '',
-        suspectName: '',
-        victimName: '',
-        officerName: ''
-      });
-
-      // Redirect after short delay
+      await axios.put(`${API_BASE_URL}/api/v1/incidents/${id}`, formData);
+      setFeedback({ type: 'success', message: 'Incident updated successfully!' });
       setTimeout(() => navigate('/incidents'), 2000);
     } catch (err) {
       setFeedback({ 
         type: 'error', 
-        message: err.response?.data?.error || 'Failed to record incident. Please try again.' 
+        message: err.response?.data?.error || 'Failed to update incident.' 
       });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+        <Loader2 className="animate-spin mb-4" size={40} />
+        <p className="font-medium">Loading incident data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Add New Incident</h2>
-          <p className="text-slate-500">Fill in the details below to record a new crime incident.</p>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/incidents')}
+            className="p-2 hover:bg-slate-200 rounded-full transition-all text-slate-600"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">Edit Incident</h2>
+            <p className="text-slate-500 text-sm">Update the information for this incident record.</p>
+          </div>
         </div>
       </div>
 
@@ -99,7 +107,6 @@ const AddIncident = () => {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-8">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Incident Info */}
           <div className="space-y-2 col-span-2">
             <label className="text-sm font-semibold text-slate-700">Incident Title</label>
             <input 
@@ -108,7 +115,6 @@ const AddIncident = () => {
               onChange={handleChange}
               required
               type="text" 
-              placeholder="Brief summary of the incident" 
               className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
             />
           </div>
@@ -122,7 +128,7 @@ const AddIncident = () => {
               onChange={handleChange}
               required
               type="text" 
-              placeholder="Select or type new type..." 
+              placeholder="Select or type new type..."
               className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
             />
             <datalist id="crime-types">
@@ -159,12 +165,10 @@ const AddIncident = () => {
               onChange={handleChange}
               required
               rows="4" 
-              placeholder="Detailed report of the event..." 
               className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             ></textarea>
           </div>
 
-          {/* Location & Time */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Date</label>
             <input 
@@ -197,7 +201,6 @@ const AddIncident = () => {
               onChange={handleChange}
               required
               type="text" 
-              placeholder="e.g. Central Park" 
               className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
             />
           </div>
@@ -210,12 +213,10 @@ const AddIncident = () => {
               onChange={handleChange}
               required
               type="text" 
-              placeholder="e.g. Brgy. Poblacion" 
               className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
             />
           </div>
 
-          {/* People involved */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700">Suspect Name</label>
             <input 
@@ -224,7 +225,6 @@ const AddIncident = () => {
               onChange={handleChange}
               required
               type="text" 
-              placeholder="Full name or 'Unknown'" 
               className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
             />
           </div>
@@ -237,7 +237,6 @@ const AddIncident = () => {
               onChange={handleChange}
               required
               type="text" 
-              placeholder="Full name or 'Anonymous'" 
               className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
             />
           </div>
@@ -250,7 +249,6 @@ const AddIncident = () => {
               onChange={handleChange}
               required
               type="text" 
-              placeholder="Name of responding officer" 
               className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
             />
           </div>
@@ -258,20 +256,20 @@ const AddIncident = () => {
           <div className="pt-4 col-span-2">
             <button 
               type="submit" 
-              disabled={loading}
+              disabled={saving}
               className={`w-full flex items-center justify-center gap-2 text-white py-3 rounded-lg font-bold transition-all shadow-lg ${
-                loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                saving ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
               }`}
             >
-              {loading ? (
+              {saving ? (
                 <span className="flex items-center gap-2">
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Recording...
+                  Updating...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
                   <Save size={20} />
-                  Record Incident
+                  Update Incident
                 </span>
               )}
             </button>
@@ -282,4 +280,4 @@ const AddIncident = () => {
   );
 };
 
-export default AddIncident;
+export default EditIncident;
