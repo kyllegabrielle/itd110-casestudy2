@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 import { Save, AlertCircle, CheckCircle2 } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const AddIncident = () => {
   const navigate = useNavigate();
@@ -28,7 +26,7 @@ const AddIncident = () => {
   useEffect(() => {
     const fetchTypes = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/v1/incidents/types/list`);
+        const response = await axiosInstance.get('/incidents/types/list');
         setExistingTypes(response.data.data);
       } catch (err) {
         console.error('Failed to fetch crime types', err);
@@ -47,7 +45,7 @@ const AddIncident = () => {
     setFeedback({ type: '', message: '' });
 
     try {
-      await axios.post(`${API_BASE_URL}/api/v1/incidents`, formData);
+      await axiosInstance.post('/incidents', formData);
       setFeedback({ type: 'success', message: 'Incident recorded successfully!' });
       
       // Clear form

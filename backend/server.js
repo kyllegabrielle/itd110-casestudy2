@@ -14,6 +14,7 @@ app.use(morgan('dev'));
 
 // Routes
 app.use('/api/v1/incidents', require('./routes/incidentRoutes'));
+app.use('/api/v1/auth', require('./routes/authRoutes'));
 
 // Basic Route
 app.get('/', (req, res) => {

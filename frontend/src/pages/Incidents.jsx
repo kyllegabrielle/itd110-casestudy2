@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 import { 
   Search, Trash2, Download, AlertCircle, Loader2, 
   Edit2, Eye, CheckCircle, X, MapPin, User, Shield, Calendar, Clock, AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { useAuth } from '../context/AuthContext';
 
 const Incidents = () => {
   const navigate = useNavigate();
+  const { isAdmin, isOfficer } = useAuth();
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -24,10 +24,10 @@ const Incidents = () => {
     setLoading(true);
     try {
       const url = keyword 
-        ? `${API_BASE_URL}/api/v1/incidents/search/${keyword}`
-        : `${API_BASE_URL}/api/v1/incidents`;
+        ? `/incidents/search/${keyword}`
+        : `/incidents`;
       
-      const response = await axios.get(url);
+      const response = await axiosInstance.get(url);
       setIncidents(response.data.data);
       setError(null);
     } catch (err) {
@@ -49,7 +49,7 @@ const Incidents = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this incident?')) {
       try {
-        await axios.delete(`${API_BASE_URL}/api/v1/incidents/${id}`);
+        await axiosInstance.delete(`/incidents/${id}`);
         setIncidents(incidents.filter(inc => inc.incidentId !== id));
       } catch (err) {
         alert('Failed to delete incident.');
@@ -62,7 +62,7 @@ const Incidents = () => {
     
     try {
       const updatedIncident = { ...selectedIncident, status: 'Solved' };
-      await axios.put(`${API_BASE_URL}/api/v1/incidents/${selectedIncident.incidentId}`, updatedIncident);
+      await axiosInstance.put(`/incidents/${selectedIncident.incidentId}`, updatedIncident);
       
       setIncidents(incidents.map(inc => 
         inc.incidentId === selectedIncident.incidentId ? { ...inc, status: 'Solved' } : inc
@@ -88,7 +88,7 @@ const Incidents = () => {
 
   const handleDownloadBackup = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/v1/incidents/backup/download`, {
+      const response = await axiosInstance.get(`/incidents/backup/download`, {
         responseType: 'blob'
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -122,13 +122,15 @@ const Incidents = () => {
               className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 w-64 shadow-sm"
             />
           </div>
-          <button 
-            onClick={handleDownloadBackup}
-            className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg font-medium hover:bg-slate-900 transition-all shadow-sm"
-          >
-            <Download size={18} />
-            Backup JSON
-          </button>
+          {isAdmin() && (
+            <button 
+              onClick={handleDownloadBackup}
+              className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg font-medium hover:bg-slate-900 transition-all shadow-sm"
+            >
+              <Download size={18} />
+              Backup JSON
+            </button>
+          )}
         </div>
       </div>
 
@@ -206,32 +208,40 @@ const Incidents = () => {
                       >
                         <Eye size={18} />
                       </button>
-                      <button 
-                        onClick={() => navigate(`/edit-incident/${incident.incidentId}`)}
-                        className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-all"
-                        title="Edit Incident"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button 
-                        onClick={() => openSolveModal(incident)}
-                        disabled={incident.status === 'Solved'}
-                        className={`p-2 rounded-lg transition-all ${
-                          incident.status === 'Solved' 
-                            ? 'text-emerald-400 cursor-not-allowed' 
-                            : 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50'
-                        }`}
-                        title="Mark as Solved"
-                      >
-                        <CheckCircle size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(incident.incidentId)}
-                        className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-all"
-                        title="Delete Incident"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      
+                      {isOfficer() && (
+                        <>
+                          <button 
+                            onClick={() => navigate(`/edit-incident/${incident.incidentId}`)}
+                            className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-all"
+                            title="Edit Incident"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                          <button 
+                            onClick={() => openSolveModal(incident)}
+                            disabled={incident.status === 'Solved'}
+                            className={`p-2 rounded-lg transition-all ${
+                              incident.status === 'Solved' 
+                                ? 'text-emerald-400 cursor-not-allowed' 
+                                : 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50'
+                            }`}
+                            title="Mark as Solved"
+                          >
+                            <CheckCircle size={18} />
+                          </button>
+                        </>
+                      )}
+
+                      {isAdmin() && (
+                        <button 
+                          onClick={() => handleDelete(incident.incidentId)}
+                          className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-all"
+                          title="Delete Incident"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -342,25 +352,29 @@ const Incidents = () => {
             </div>
 
             <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
-              {selectedIncident.status !== 'Solved' && (
-                <button 
-                  onClick={() => setIsSolveModalOpen(true)}
-                  className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100"
-                >
-                  <CheckCircle size={18} />
-                  Mark as Solved
-                </button>
+              {isOfficer() && (
+                <>
+                  {selectedIncident.status !== 'Solved' && (
+                    <button 
+                      onClick={() => setIsSolveModalOpen(true)}
+                      className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100"
+                    >
+                      <CheckCircle size={18} />
+                      Mark as Solved
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => {
+                      setIsViewModalOpen(false);
+                      navigate(`/edit-incident/${selectedIncident.incidentId}`);
+                    }}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
+                  >
+                    <Edit2 size={18} />
+                    Edit Details
+                  </button>
+                </>
               )}
-              <button 
-                onClick={() => {
-                  setIsViewModalOpen(false);
-                  navigate(`/edit-incident/${selectedIncident.incidentId}`);
-                }}
-                className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
-              >
-                <Edit2 size={18} />
-                Edit Details
-              </button>
             </div>
           </div>
         </div>

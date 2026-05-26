@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 import { Save, AlertCircle, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const EditIncident = () => {
   const navigate = useNavigate();
@@ -31,8 +29,8 @@ const EditIncident = () => {
     const fetchData = async () => {
       try {
         const [incidentRes, typesRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/api/v1/incidents/${id}`),
-          axios.get(`${API_BASE_URL}/api/v1/incidents/types/list`)
+          axiosInstance.get(`/incidents/${id}`),
+          axiosInstance.get(`/incidents/types/list`)
         ]);
         setFormData(incidentRes.data.data);
         setExistingTypes(typesRes.data.data);
@@ -55,7 +53,7 @@ const EditIncident = () => {
     setFeedback({ type: '', message: '' });
 
     try {
-      await axios.put(`${API_BASE_URL}/api/v1/incidents/${id}`, formData);
+      await axiosInstance.put(`/incidents/${id}`, formData);
       setFeedback({ type: 'success', message: 'Incident updated successfully!' });
       setTimeout(() => navigate('/incidents'), 2000);
     } catch (err) {

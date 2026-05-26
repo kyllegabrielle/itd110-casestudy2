@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 import { Shield, FileText, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -33,7 +31,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/v1/incidents/dashboard/stats`);
+        const response = await axiosInstance.get('/incidents/dashboard/stats');
         setStats(response.data.data);
       } catch (err) {
         console.error('Failed to fetch dashboard stats', err);

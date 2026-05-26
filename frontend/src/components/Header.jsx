@@ -1,6 +1,9 @@
 import { Bell, UserCircle, Search } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
 const Header = () => {
+  const { user } = useAuth();
+
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
       <div className="flex items-center bg-slate-100 rounded-lg px-3 py-1.5 w-96 border border-slate-200">
@@ -19,8 +22,8 @@ const Header = () => {
         </button>
         <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
           <div className="text-right">
-            <p className="text-sm font-semibold text-slate-800">Officer Ramos</p>
-            <p className="text-[11px] text-slate-500">System Admin</p>
+            <p className="text-sm font-semibold text-slate-800">{user?.name || 'User'}</p>
+            <p className="text-[11px] text-slate-500">{user?.role || 'Guest'}</p>
           </div>
           <UserCircle className="text-slate-400" size={32} />
         </div>
