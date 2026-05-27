@@ -390,7 +390,15 @@ exports.downloadBackup = async (req, res) => {
 exports.getGraphData = async (req, res) => {
   const s = session();
   try {
-    const result = await s.run('MATCH (i:Incident) RETURN i');
+    const result = await s.run(`
+      MATCH (i:Incident)
+      OPTIONAL MATCH (i)-[r1:HAS_TYPE]->(ct:CrimeType)
+      OPTIONAL MATCH (i)-[r2:OCCURRED_AT]->(l:Location)
+      OPTIONAL MATCH (s:Suspect)-[r3:INVOLVED_IN]->(i)
+      OPTIONAL MATCH (v:Victim)-[r4:AFFECTED_BY]->(i)
+      OPTIONAL MATCH (o:Officer)-[r5:HANDLED]->(i)
+      RETURN i, ct, l, s, v, o
+    `);
     
     const nodes = [];
     const links = [];
@@ -405,37 +413,30 @@ exports.getGraphData = async (req, res) => {
     result.records.forEach(record => {
       const i = record.get('i').properties;
       const incidentId = i.incidentId;
-
-      // Add Incident Node
       addNode(incidentId, 'Incident', i.title);
 
-      // Add & Link Suspect
-      if (i.suspectName) {
-        const sId = `suspect-${i.suspectName}`;
-        addNode(sId, 'Suspect', i.suspectName);
-        links.push({ source: sId, target: incidentId, label: 'INVOLVED_IN' });
-      }
+      const entities = [
+        { key: 's', label: 'Suspect', rel: 'INVOLVED_IN', targetId: incidentId, reverse: true },
+        { key: 'v', label: 'Victim', rel: 'AFFECTED_BY', targetId: incidentId, reverse: true },
+        { key: 'o', label: 'Officer', rel: 'HANDLED_BY', targetId: incidentId, reverse: true },
+        { key: 'l', label: 'Location', rel: 'OCCURRED_AT', targetId: incidentId, reverse: false },
+        { key: 'ct', label: 'CrimeType', rel: 'HAS_TYPE', targetId: incidentId, reverse: false }
+      ];
 
-      // Add & Link Victim
-      if (i.victimName) {
-        const vId = `victim-${i.victimName}`;
-        addNode(vId, 'Victim', i.victimName);
-        links.push({ source: vId, target: incidentId, label: 'AFFECTED_BY' });
-      }
-
-      // Add & Link Officer
-      if (i.officerName) {
-        const oId = `officer-${i.officerName}`;
-        addNode(oId, 'Officer', i.officerName);
-        links.push({ source: oId, target: incidentId, label: 'HANDLED_BY' });
-      }
-
-      // Add & Link Location
-      if (i.locationName) {
-        const lId = `location-${i.locationName}`;
-        addNode(lId, 'Location', i.locationName);
-        links.push({ source: incidentId, target: lId, label: 'OCCURRED_AT' });
-      }
+      entities.forEach(entity => {
+        const node = record.get(entity.key);
+        if (node) {
+          const props = node.properties;
+          const entityId = `${entity.label}-${props.name}`;
+          addNode(entityId, entity.label, props.name);
+          
+          if (entity.reverse) {
+            links.push({ source: entityId, target: entity.targetId, label: entity.rel });
+          } else {
+            links.push({ source: entity.targetId, target: entityId, label: entity.rel });
+          }
+        }
+      });
     });
 
     res.json({ success: true, data: { nodes, links } });
