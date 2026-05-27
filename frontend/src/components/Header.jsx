@@ -3,11 +3,13 @@ import { Bell, UserCircle, Search, CheckCircle, Info } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../context/NotificationContext'
 import { formatDistanceToNow } from 'date-fns'
+import NotificationDetailModal from './NotificationDetailModal'
 
 const Header = () => {
   const { user } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -24,7 +26,7 @@ const Header = () => {
     if (!n.read) {
       markAsRead(n.notificationId);
     }
-    // Optionally navigate to incident
+    setSelectedNotification(n);
     setShowNotifications(false);
   };
 
@@ -120,6 +122,11 @@ const Header = () => {
           <UserCircle className="text-slate-400" size={32} />
         </div>
       </div>
+
+      <NotificationDetailModal 
+        notification={selectedNotification} 
+        onClose={() => setSelectedNotification(null)} 
+      />
     </header>
   )
 }
