@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../utils/axiosInstance';
 import { Save, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 
 const AddIncident = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { fetchNotifications } = useNotifications();
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
@@ -22,8 +24,14 @@ const AddIncident = () => {
     barangay: '',
     suspectName: '',
     victimName: '',
-    officerName: ''
+    officerName: user?.name || ''
   });
+
+  useEffect(() => {
+    if (user?.name && !formData.officerName) {
+      setFormData(prev => ({ ...prev, officerName: user.name }));
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchTypes = async () => {
@@ -65,7 +73,7 @@ const AddIncident = () => {
         barangay: '',
         suspectName: '',
         victimName: '',
-        officerName: ''
+        officerName: user?.name || ''
       });
 
       // Redirect after short delay
@@ -256,6 +264,7 @@ const AddIncident = () => {
               placeholder="Name of responding officer" 
               className="w-full px-4 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
             />
+            <p className="text-[11px] text-slate-400 italic">Auto-filled from your profile; change if reporting for another officer.</p>
           </div>
 
           <div className="pt-4 col-span-2">
