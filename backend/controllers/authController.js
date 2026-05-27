@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { createUser, findUserByUsername } = require('../utils/userQueries');
+const { createUser, findUserByUsername, getAllUsers } = require('../utils/userQueries');
 
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET || 'secret', {
@@ -10,7 +10,7 @@ const generateToken = (id, role) => {
 
 // @desc    Register a new user
 // @route   POST /api/v1/auth/register
-// @access  Public (Should be Admin only in production, but open for initial setup)
+// @access  Admin only (protected in routes)
 const registerUser = async (req, res) => {
   try {
     const { username, password, role, name, email } = req.body;
@@ -81,7 +81,21 @@ const loginUser = async (req, res) => {
   }
 };
 
+// @desc    Get all users
+// @route   GET /api/v1/auth/users
+// @access  Admin only
+const getUsers = async (req, res) => {
+  try {
+    const users = await getAllUsers();
+    res.json({ success: true, data: users });
+  } catch (error) {
+    console.error('Get Users Error:', error);
+    res.status(500).json({ message: 'Server error while fetching users' });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
+  getUsers,
 };

@@ -58,8 +58,25 @@ const findUserById = async (id) => {
   }
 };
 
+const getAllUsers = async () => {
+  const s = session();
+  try {
+    const result = await s.run(
+      'MATCH (u:User) RETURN u ORDER BY u.role, u.username'
+    );
+    return result.records.map(record => {
+      const props = record.get('u').properties;
+      delete props.passwordHash; // Never return password hash
+      return props;
+    });
+  } finally {
+    await s.close();
+  }
+};
+
 module.exports = {
   createUser,
   findUserByUsername,
-  findUserById
+  findUserById,
+  getAllUsers
 };
