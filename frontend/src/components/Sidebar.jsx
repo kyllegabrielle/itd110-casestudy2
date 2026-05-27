@@ -1,9 +1,9 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, ShieldAlert, PlusCircle, LogOut } from 'lucide-react'
+import { LayoutDashboard, ShieldAlert, PlusCircle, LogOut, Users } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const Sidebar = () => {
-  const { isOfficer, logout } = useAuth();
+  const { isOfficer, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -15,6 +15,7 @@ const Sidebar = () => {
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} />, show: true },
     { name: 'Incidents', path: '/incidents', icon: <ShieldAlert size={20} />, show: true },
     { name: 'Add Incident', path: '/add-incident', icon: <PlusCircle size={20} />, show: isOfficer() },
+    { name: 'Users', path: '/users', icon: <Users size={20} />, show: isAdmin() },
   ]
 
   return (

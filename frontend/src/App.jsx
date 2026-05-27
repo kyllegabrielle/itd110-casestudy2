@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Incidents from './pages/Incidents'
 import AddIncident from './pages/AddIncident'
 import EditIncident from './pages/EditIncident'
+import UserManagement from './pages/UserManagement'
 import Login from './pages/Login'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
@@ -31,6 +32,14 @@ const MainLayout = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/incidents" element={<Incidents />} />
+            <Route
+              path="/users"
+              element={
+                <ProtectedRoute allowedRoles={['Admin']}>
+                  <UserManagement />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/add-incident"
               element={
