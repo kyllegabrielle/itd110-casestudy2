@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../utils/axiosInstance';
 import { Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useNotifications } from '../context/NotificationContext';
 
 const AddIncident = () => {
   const navigate = useNavigate();
+  const { fetchNotifications } = useNotifications();
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [existingTypes, setExistingTypes] = useState([]);
@@ -47,6 +49,9 @@ const AddIncident = () => {
     try {
       await axiosInstance.post('/incidents', formData);
       setFeedback({ type: 'success', message: 'Incident recorded successfully!' });
+      
+      // Refresh notifications to show the new one immediately
+      fetchNotifications();
       
       // Clear form
       setFormData({

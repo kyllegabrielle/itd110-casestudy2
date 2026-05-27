@@ -35,9 +35,24 @@ exports.createIncident = async (req, res) => {
        MERGE (o:Officer {name: $officerName})
        MERGE (o)-[:HANDLED]->(i)
        
+       WITH i
+       CREATE (n:Notification {
+         notificationId: $notificationId,
+         title: 'New Incident Reported',
+         message: 'A new ' + $crimeType + ' has been reported at ' + $locationName,
+         type: 'new_incident',
+         incidentId: $id,
+         createdAt: $createdAt
+       })
+       WITH i, n
+       MATCH (u:User)
+       CREATE (u)-[:HAS_NOTIFICATION {read: false}]->(n)
+       
        RETURN i`,
       {
         id: id,
+        notificationId: uuidv4(),
+        createdAt: new Date().toISOString(),
         title: title || "",
         description: description || "",
         date: date || "",

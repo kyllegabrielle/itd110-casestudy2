@@ -9,6 +9,7 @@ import UserManagement from './pages/UserManagement'
 import NetworkMap from './pages/NetworkMap'
 import Login from './pages/Login'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { NotificationProvider } from './context/NotificationContext'
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
@@ -68,17 +69,19 @@ const MainLayout = () => {
 function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+      <NotificationProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
