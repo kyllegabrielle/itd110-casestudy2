@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import axiosInstance from '../utils/axiosInstance';
 import { 
   Search, Trash2, Download, AlertCircle, Loader2, 
-  Edit2, Eye, CheckCircle, X, MapPin, User, Shield, Calendar, Clock, AlertTriangle
+  Edit2, Eye, CheckCircle, X, MapPin, User, Shield, Calendar, Clock, AlertTriangle,
+  QrCode
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const Incidents = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAdmin, isOfficer } = useAuth();
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +48,30 @@ const Incidents = () => {
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
+
+  // Deep linking support
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    if (id && incidents.length > 0) {
+      const incident = incidents.find(inc => inc.incidentId === id);
+      if (incident) {
+        setSelectedIncident(incident);
+        setIsViewModalOpen(true);
+      }
+    }
+  }, [incidents, location.search]);
+
+  const downloadQRCode = () => {
+    const canvas = document.getElementById('incident-qr');
+    if (!canvas) return;
+    
+    const pngFile = canvas.toDataURL('image/png');
+    const downloadLink = document.createElement('a');
+    downloadLink.download = `QR-Incident-${selectedIncident.incidentId.split('-')[0]}.png`;
+    downloadLink.href = pngFile;
+    downloadLink.click();
+  };
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this incident?')) {
@@ -270,6 +297,7 @@ const Incidents = () => {
                 onClick={() => {
                   setIsViewModalOpen(false);
                   setSelectedIncident(null);
+                  navigate('/incidents', { replace: true }); // Clear URL params
                 }}
                 className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200 rounded-full transition-all"
               >
@@ -347,6 +375,32 @@ const Incidents = () => {
                       <p className="text-slate-800 font-bold truncate">{selectedIncident.officerName}</p>
                     </div>
                   </div>
+                </div>
+
+                <div className="col-span-2 flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                  <div className="flex items-center gap-2 text-slate-500 mb-2">
+                    <QrCode size={18} />
+                    <span className="text-xs uppercase font-bold tracking-wider">Incident QR Access</span>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <QRCodeCanvas 
+                      id="incident-qr"
+                      value={`${window.location.origin}/incidents?id=${selectedIncident.incidentId}`}
+                      size={128}
+                      level={"H"}
+                      includeMargin={true}
+                    />
+                  </div>
+                  <button 
+                    onClick={downloadQRCode}
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-bold transition-colors"
+                  >
+                    <Download size={16} />
+                    Download QR Code
+                  </button>
+                  <p className="text-[10px] text-slate-400 text-center max-w-[200px]">
+                    Scan this code to quickly access this incident report from any mobile device.
+                  </p>
                 </div>
               </div>
             </div>
