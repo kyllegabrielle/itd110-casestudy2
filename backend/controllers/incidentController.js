@@ -369,3 +369,65 @@ exports.downloadBackup = async (req, res) => {
     await s.close();
   }
 };
+
+// @desc    Get data formatted for graph visualization
+// @route   GET /api/v1/incidents/graph/data
+exports.getGraphData = async (req, res) => {
+  const s = session();
+  try {
+    const result = await s.run('MATCH (i:Incident) RETURN i');
+    
+    const nodes = [];
+    const links = [];
+    const nodeIds = new Set();
+
+    const addNode = (id, label, name) => {
+      if (!id || nodeIds.has(id)) return;
+      nodeIds.add(id);
+      nodes.push({ id, label, name });
+    };
+
+    result.records.forEach(record => {
+      const i = record.get('i').properties;
+      const incidentId = i.incidentId;
+
+      // Add Incident Node
+      addNode(incidentId, 'Incident', i.title);
+
+      // Add & Link Suspect
+      if (i.suspectName) {
+        const sId = `suspect-${i.suspectName}`;
+        addNode(sId, 'Suspect', i.suspectName);
+        links.push({ source: sId, target: incidentId, label: 'INVOLVED_IN' });
+      }
+
+      // Add & Link Victim
+      if (i.victimName) {
+        const vId = `victim-${i.victimName}`;
+        addNode(vId, 'Victim', i.victimName);
+        links.push({ source: vId, target: incidentId, label: 'AFFECTED_BY' });
+      }
+
+      // Add & Link Officer
+      if (i.officerName) {
+        const oId = `officer-${i.officerName}`;
+        addNode(oId, 'Officer', i.officerName);
+        links.push({ source: oId, target: incidentId, label: 'HANDLED_BY' });
+      }
+
+      // Add & Link Location
+      if (i.locationName) {
+        const lId = `location-${i.locationName}`;
+        addNode(lId, 'Location', i.locationName);
+        links.push({ source: incidentId, target: lId, label: 'OCCURRED_AT' });
+      }
+    });
+
+    res.json({ success: true, data: { nodes, links } });
+  } catch (error) {
+    console.error('Graph Data Error:', error);
+    res.status(500).json({ error: 'Failed to fetch graph data' });
+  } finally {
+    await s.close();
+  }
+};

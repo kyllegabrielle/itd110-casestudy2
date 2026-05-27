@@ -9,7 +9,8 @@ const {
   searchIncidents,
   getStats,
   getCrimeTypes,
-  downloadBackup
+  downloadBackup,
+  getGraphData
 } = require('../controllers/incidentController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/roleMiddleware');
@@ -28,6 +29,7 @@ router.route('/:id')
 router.get('/search/:keyword', protect, searchIncidents);
 router.get('/dashboard/stats', protect, getStats);
 router.get('/types/list', protect, getCrimeTypes);
+router.get('/graph/data', protect, getGraphData);
 router.get('/backup/download', protect, authorizeRoles('Admin'), downloadBackup);
 
 module.exports = router;
