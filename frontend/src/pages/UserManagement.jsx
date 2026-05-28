@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../utils/axiosInstance';
-import { UserPlus, Shield, User, Mail, Lock, AlertCircle, CheckCircle2, Loader2, Users } from 'lucide-react';
+import { UserPlus, Shield, User, Mail, Lock, AlertCircle, CheckCircle2, Loader2, Users, Edit, Trash2, X } from 'lucide-react';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
+  const [editingUser, setEditingUser] = useState(null);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -36,17 +37,72 @@ const UserManagement = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleEdit = (user) => {
+    setEditingUser(user);
+    setFormData({
+      username: user.username,
+      password: '', // Don't pre-fill password
+      name: user.name,
+      email: user.email,
+      role: user.role
+    });
+    setFeedback({ type: '', message: '' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingUser(null);
+    setFormData({
+      username: '',
+      password: '',
+      name: '',
+      email: '',
+      role: 'Officer'
+    });
+    setFeedback({ type: '', message: '' });
+  };
+
+  const handleDelete = async (user) => {
+    if (!window.confirm(`Are you sure you want to delete user "${user.username}"?`)) {
+      return;
+    }
+
+    try {
+      await axiosInstance.delete(`/auth/users/${user.id}`);
+      setFeedback({ type: 'success', message: `User "${user.username}" deleted successfully.` });
+      fetchUsers();
+    } catch (err) {
+      setFeedback({ 
+        type: 'error', 
+        message: err.response?.data?.message || 'Failed to delete user.' 
+      });
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setFeedback({ type: '', message: '' });
 
     try {
-      await axiosInstance.post('/auth/register', formData);
-      setFeedback({ 
-        type: 'success', 
-        message: `User "${formData.username}" created successfully as ${formData.role}!` 
-      });
+      if (editingUser) {
+        // Prepare data for update (only include password if it's not empty)
+        const updateData = { ...formData };
+        if (!updateData.password) delete updateData.password;
+        
+        await axiosInstance.put(`/auth/users/${editingUser.id}`, updateData);
+        setFeedback({ 
+          type: 'success', 
+          message: `User "${formData.username}" updated successfully!` 
+        });
+        setEditingUser(null);
+      } else {
+        await axiosInstance.post('/auth/register', formData);
+        setFeedback({ 
+          type: 'success', 
+          message: `User "${formData.username}" created successfully as ${formData.role}!` 
+        });
+      }
       
       // Reset form
       setFormData({
@@ -62,7 +118,7 @@ const UserManagement = () => {
     } catch (err) {
       setFeedback({ 
         type: 'error', 
-        message: err.response?.data?.message || 'Failed to create user. Please try again.' 
+        message: err.response?.data?.message || `Failed to ${editingUser ? 'update' : 'create'} user. Please try again.` 
       });
     } finally {
       setLoading(false);
@@ -79,12 +135,22 @@ const UserManagement = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* CREATE USER FORM */}
+        {/* CREATE/EDIT USER FORM */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-            <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-              <UserPlus size={20} className="text-blue-600" />
-              Create New Account
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 sticky top-8">
+            <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                {editingUser ? <Edit size={20} className="text-amber-600" /> : <UserPlus size={20} className="text-blue-600" />}
+                {editingUser ? 'Edit Account' : 'Create New Account'}
+              </span>
+              {editingUser && (
+                <button 
+                  onClick={handleCancelEdit}
+                  className="p-1 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              )}
             </h3>
 
             {feedback.message && (
@@ -116,14 +182,16 @@ const UserManagement = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Password {editingUser && <span className="text-[10px] lowercase font-normal text-slate-400">(Leave blank to keep current)</span>}
+                </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input 
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
-                    required
+                    required={!editingUser}
                     type="password" 
                     placeholder="••••••••" 
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm" 
@@ -181,12 +249,26 @@ const UserManagement = () => {
                 type="submit" 
                 disabled={loading}
                 className={`w-full flex items-center justify-center gap-2 text-white py-2.5 rounded-lg font-bold transition-all mt-4 ${
-                  loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                  loading 
+                    ? 'bg-blue-400 cursor-not-allowed' 
+                    : editingUser 
+                      ? 'bg-amber-600 hover:bg-amber-700' 
+                      : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                {loading ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
-                {loading ? 'Processing...' : 'Create Account'}
+                {loading ? <Loader2 className="animate-spin" size={18} /> : editingUser ? <Edit size={18} /> : <UserPlus size={18} />}
+                {loading ? 'Processing...' : editingUser ? 'Update Account' : 'Create Account'}
               </button>
+              
+              {editingUser && (
+                <button 
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="w-full text-slate-500 py-2 text-sm font-medium hover:text-slate-800 transition-colors"
+                >
+                  Cancel Edit
+                </button>
+              )}
             </form>
           </div>
         </div>
@@ -222,7 +304,7 @@ const UserManagement = () => {
                       <th className="px-6 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-400">Name & Email</th>
                       <th className="px-6 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-400">Username</th>
                       <th className="px-6 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-400">Role</th>
-                      <th className="px-6 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-400">Created At</th>
+                      <th className="px-6 py-4 text-[10px] uppercase tracking-wider font-bold text-slate-400 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -246,8 +328,23 @@ const UserManagement = () => {
                             {u.role}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-xs text-slate-400">
-                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => handleEdit(u)}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              title="Edit User"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(u)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              title="Delete User"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

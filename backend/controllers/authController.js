@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { createUser, findUserByUsername, getAllUsers } = require('../utils/userQueries');
+const { createUser, findUserByUsername, findUserById, getAllUsers, updateUser, deleteUser } = require('../utils/userQueries');
 
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET || 'secret', {
@@ -94,8 +94,77 @@ const getUsers = async (req, res) => {
   }
 };
 
+// @desc    Update a user
+// @route   PUT /api/v1/auth/users/:id
+// @access  Admin only
+const updateUserController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, password, role, name, email } = req.body;
+
+    const user = await findUserById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if username is being changed and if new username exists
+    if (username && username !== user.username) {
+      const userExists = await findUserByUsername(username);
+      if (userExists) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
+    }
+
+    const updateData = {
+      username: username || user.username,
+      name: name || user.name,
+      email: email || user.email,
+      role: role || user.role,
+    };
+
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      updateData.passwordHash = await bcrypt.hash(password, salt);
+    }
+
+    const updatedUser = await updateUser(id, updateData);
+    delete updatedUser.passwordHash;
+
+    res.json({ success: true, data: updatedUser });
+  } catch (error) {
+    console.error('Update User Error:', error);
+    res.status(500).json({ message: 'Server error during user update' });
+  }
+};
+
+// @desc    Delete a user
+// @route   DELETE /api/v1/auth/users/:id
+// @access  Admin only
+const deleteUserController = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent deleting self
+    if (req.user && req.user.id === id) {
+      return res.status(400).json({ message: 'You cannot delete your own account' });
+    }
+
+    const success = await deleteUser(id);
+    if (!success) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete User Error:', error);
+    res.status(500).json({ message: 'Server error during user deletion' });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getUsers,
+  updateUser: updateUserController,
+  deleteUser: deleteUserController,
 };

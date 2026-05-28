@@ -74,9 +74,47 @@ const getAllUsers = async () => {
   }
 };
 
+const updateUser = async (id, userData) => {
+  const s = session();
+  try {
+    const { username, name, email, role, passwordHash } = userData;
+    
+    let query = 'MATCH (u:User {id: $id}) SET u.username = $username, u.name = $name, u.email = $email, u.role = $role';
+    const params = { id, username, name, email, role };
+
+    if (passwordHash) {
+      query += ', u.passwordHash = $passwordHash';
+      params.passwordHash = passwordHash;
+    }
+
+    query += ' RETURN u';
+
+    const result = await s.run(query, params);
+    if (result.records.length === 0) return null;
+    return result.records[0].get('u').properties;
+  } finally {
+    await s.close();
+  }
+};
+
+const deleteUser = async (id) => {
+  const s = session();
+  try {
+    const result = await s.run(
+      'MATCH (u:User {id: $id}) DETACH DELETE u RETURN count(u) as deletedCount',
+      { id }
+    );
+    return result.records[0].get('deletedCount').toInt() > 0;
+  } finally {
+    await s.close();
+  }
+};
+
 module.exports = {
   createUser,
   findUserByUsername,
   findUserById,
-  getAllUsers
+  getAllUsers,
+  updateUser,
+  deleteUser
 };
